@@ -1,4 +1,4 @@
-private val dayName = "Day01"
+private const val dayName = "Day01"
 fun main() {
     checkPart1()
 //    checkPart2()
@@ -21,7 +21,7 @@ private fun checkPart1() {
 
 private fun checkPart2() {
     val partTwoTest = readInput("${dayName}_test")
-    check(part2(partTwoTest).println("Part two test result") == 281 )
+    check(part2(partTwoTest).println("Part two test result") == 281)
 }
 
 private fun part2(input: List<String>) = input.size

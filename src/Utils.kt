@@ -7,6 +7,8 @@ import kotlin.io.path.readLines
  * Reads lines from the given input txt file.
  */
 fun readInput(name: String) = Path("src/$name.txt").readLines()
+fun readInputResources(day: String, name: String) = Path("resources/${day}/$name.txt").readLines()
+
 
 /**
  * Converts string to md5 hash.
@@ -18,6 +20,6 @@ fun String.md5() = BigInteger(1, MessageDigest.getInstance("MD5").digest(toByteA
 /**
  * The cleaner shorthand for printing output.
  */
-fun <T> T?.println(prefixMessage: String = ""): T? = apply {
+fun <T> T.println(prefixMessage: String = ""): T = apply {
     kotlin.io.println("${prefixMessage} ${this}")
 }

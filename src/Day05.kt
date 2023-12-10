@@ -1,10 +1,13 @@
+import kotlin.math.max
+import kotlin.math.min
+
 private const val dayName = "Day05"
 fun main() {
     checkPart1()
     checkPart2()
 
 
-    val input = readInput(dayName)
+    val input = readInputResources(dayName, "input")
     part1(input).println("Part one result:")
     part2(input).println("Part two result:")
 }
@@ -72,7 +75,8 @@ private fun parseGame(input: List<String>, seedsAsRegex: Boolean = false): Input
     val seedsRanges = if (seedsAsRegex)
         "(?<start>\\d+) (?<length>\\d+)".toRegex().findAll(input.first())
             .map {
-                LongRange(it.groups["start"]!!.value.toLong(), it.groups["length"]!!.value.toLong() - 1)
+                val start = it.groups["start"]!!.value.toLong()
+                LongRange(start, start + it.groups["length"]!!.value.toLong() - 1)
             }.toList()
     else emptyList<LongRange>()
 
@@ -107,21 +111,93 @@ private fun parseGame(input: List<String>, seedsAsRegex: Boolean = false): Input
 }
 
 private fun checkPart1() {
-    val partOneTest = readInput("${dayName}_test")
+    val partOneTest = readInputResources(dayName, "test")
     check(part1(partOneTest).println("Part one test result") == 35L)
 }
 
 private fun checkPart2() {
-    val partTwoTest = readInput("${dayName}_test")
+    val partTwoTest = readInputResources(dayName, "test")
     check(part2(partTwoTest).println("Part two test result") == 46L)
 }
 
+private fun Long.isBetween(inclusiveMin: Long, exclusiveMax: Long) = this in inclusiveMin..<exclusiveMax
+private fun LongRange.overlaps(other: LongRange): Boolean = this.edgesInsideRange(other) || other.edgesInsideRange(this)
+
+private fun LongRange.edgesInsideRange(other: LongRange): Boolean = start.isBetween(other.first, other.last)
+        || last.isBetween(other.first, other.last)
+
+
 private fun part2(input: List<String>): Long {
     val parsed = parseGame(input, true)
+    val intervalsMapped = MapName.values().fold(parsed.seedsRange) { acc, mapName ->
+        println("-----------")
+        println("-----${mapName}")
+        println("-----${acc}")
+        println("-----------")
+        val result = acc.flatMap { seedRange ->
+            val mapped = parsed.maps[mapName]!!.mappings
+                .filter {
+                    it.sourceRange.overlaps(seedRange)
+                }
+                .map {
+                    seedRange to it
+                }.groupBy({
+                    it.first
+                }) {
+                    it.second
+                }
+            if (mapped.isEmpty())
+                return@flatMap listOf(seedRange)
+            mapped.flatMap { (seed, overlappedMappings) ->
+                val (seedRangeLeft, mappingResult) = overlappedMappings
+                    .sortedBy { it.sourceRange.first }
+                    .fold(seed to mutableListOf<LongRange>()) { (seedRangeLeft, mappingResult), mapping ->
+                        if (seedRangeLeft == LongRange.EMPTY)
+                            return@fold seedRangeLeft to mappingResult
+                        mapping.println("Processing mapping")
+                        if (seedRangeLeft.first < mapping.sourceRange.first)
+                            mappingResult.add(
+                                LongRange(
+                                    seedRangeLeft.first,
+                                    mapping.sourceRange.first - 1
+                                ).println("left range of ${seedRangeLeft}")
+                            )
 
-    parsed.seedsRange.map {
+                        val convertFactor = mapping.destinationRange.first - mapping.sourceRange.first
+                        val mapped = LongRange(
+                            max(mapping.sourceRange.first, seedRangeLeft.first) + convertFactor,
+                            min(mapping.sourceRange.last, seedRangeLeft.last) + convertFactor
+                        ).println("overlapping range of ${seedRangeLeft}")
 
+                        mappingResult.add(
+                            mapped
+                        )
+
+                        val seedRangeLeft = if (seedRangeLeft.last > mapping.sourceRange.last) LongRange(
+                            min(
+                                mapping.sourceRange.last,
+                                seedRangeLeft.last
+                            ) + 1, seedRangeLeft.last
+                        ) else LongRange.EMPTY
+
+                        seedRangeLeft.println("left to process from $seedRangeLeft")
+
+                        seedRangeLeft to mappingResult
+                    }
+                if (seedRangeLeft != LongRange.EMPTY)
+                    mappingResult.add(seedRange)
+
+                mappingResult.toList()
+            }
+        }
+        println("-----------")
+        println("-----${mapName}")
+        println("-----${result}")
+        println("-----------")
+        result
     }
-    return 0
+    return intervalsMapped.minOf { it.first }
+
+
 }
 

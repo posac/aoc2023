@@ -47,13 +47,13 @@ private fun parseData(input: List<String>) = input.map {
             val name = counts?.groups?.get("name")?.value
             cubeSet = when (name) {
                 "blue" -> cubeSet.copy(
-                    blue = counts.groups.get("count")?.value?.toInt() ?: 0
+                    blue = counts.groups["count"]?.value?.toInt() ?: 0
                 )
                 "red" -> cubeSet.copy(
-                    red = counts.groups.get("count")?.value?.toInt() ?: 0
+                    red = counts.groups["count"]?.value?.toInt() ?: 0
                 )
                 "green" -> cubeSet.copy(
-                    green = counts.groups.get("count")?.value?.toInt() ?: 0
+                    green = counts.groups["count"]?.value?.toInt() ?: 0
                 )
                 else -> {
                     print("Missing name ${name}")

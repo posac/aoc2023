@@ -1,13 +1,13 @@
 import kotlin.math.max
 import kotlin.math.min
 
-private const val dayName = "Day05"
+private const val DAY_NAME = "Day05"
 fun main() {
     checkPart1()
     checkPart2()
 
 
-    val input = readInputResources(dayName, "input")
+    val input = readInputResources(DAY_NAME, "input")
     part1(input).println("Part one result:")
     part2(input).println("Part two result:")
 }
@@ -50,17 +50,17 @@ val MAP_REGEX = "(?<destinationStart>\\d+) (?<sourceStart>\\d+) (?<length>\\d+)"
 private fun part1(input: List<String>): Long {
     val parsed = parseGame(input)
     println("Parsed data")
-    return parsed.seeds.map {
+    return parsed.seeds.minOf {
         MapName.values().fold(it) { acc, mapName ->
             val almanacMap = parsed.maps[mapName]!!
-            almanacMap.mappings.firstOrNull {
-                it.sourceRange.contains(acc)
-            }?.let {
-                val indexOf = acc - it.sourceRange.first
-                it.destinationRange.first + indexOf
+            almanacMap.mappings.firstOrNull { mapping ->
+                mapping.sourceRange.contains(acc)
+            }?.let { mapping ->
+                val indexOf = acc - mapping.sourceRange.first
+                mapping.destinationRange.first + indexOf
             } ?: acc
         }
-    }.min()
+    }
 }
 
 private fun parseGame(input: List<String>, seedsAsRegex: Boolean = false): InputParsed {
@@ -78,7 +78,7 @@ private fun parseGame(input: List<String>, seedsAsRegex: Boolean = false): Input
                 val start = it.groups["start"]!!.value.toLong()
                 LongRange(start, start + it.groups["length"]!!.value.toLong() - 1)
             }.toList()
-    else emptyList<LongRange>()
+    else emptyList()
 
     val maps = mutableListOf<AlmanacMap>()
     input.drop(3)
@@ -102,21 +102,20 @@ private fun parseGame(input: List<String>, seedsAsRegex: Boolean = false): Input
         }.let {
             maps.add(it)
         }
-    val parsed = InputParsed(
+    return InputParsed(
         seeds = seeds,
         seedsRange = seedsRanges,
         maps = maps.associateBy { it.name }
     )
-    return parsed
 }
 
 private fun checkPart1() {
-    val partOneTest = readInputResources(dayName, "test")
+    val partOneTest = readInputResources(DAY_NAME, "test")
     check(part1(partOneTest).println("Part one test result") == 35L)
 }
 
 private fun checkPart2() {
-    val partTwoTest = readInputResources(dayName, "test")
+    val partTwoTest = readInputResources(DAY_NAME, "test")
     check(part2(partTwoTest).println("Part two test result") == 46L)
 }
 
@@ -130,74 +129,92 @@ private fun LongRange.edgesInsideRange(other: LongRange): Boolean = start.isBetw
 private fun part2(input: List<String>): Long {
     val parsed = parseGame(input, true)
     val intervalsMapped = MapName.values().fold(parsed.seedsRange) { acc, mapName ->
-        println("-----------")
-        println("-----${mapName}")
-        println("-----${acc}")
-        println("-----------")
         val result = acc.flatMap { seedRange ->
-            val mapped = parsed.maps[mapName]!!.mappings
-                .filter {
-                    it.sourceRange.overlaps(seedRange)
-                }
-                .map {
-                    seedRange to it
-                }.groupBy({
-                    it.first
-                }) {
-                    it.second
-                }
-            if (mapped.isEmpty())
+            val overlappingRangeMappings = findOverlappingRangeMappings(parsed, mapName, seedRange)
+            if (overlappingRangeMappings.isEmpty())
                 return@flatMap listOf(seedRange)
-            mapped.flatMap { (seed, overlappedMappings) ->
-                val (seedRangeLeft, mappingResult) = overlappedMappings
-                    .sortedBy { it.sourceRange.first }
-                    .fold(seed to mutableListOf<LongRange>()) { (seedRangeLeft, mappingResult), mapping ->
-                        if (seedRangeLeft == LongRange.EMPTY)
-                            return@fold seedRangeLeft to mappingResult
-                        mapping.println("Processing mapping")
-                        if (seedRangeLeft.first < mapping.sourceRange.first)
-                            mappingResult.add(
-                                LongRange(
-                                    seedRangeLeft.first,
-                                    mapping.sourceRange.first - 1
-                                ).println("left range of ${seedRangeLeft}")
-                            )
 
-                        val convertFactor = mapping.destinationRange.first - mapping.sourceRange.first
-                        val mapped = LongRange(
-                            max(mapping.sourceRange.first, seedRangeLeft.first) + convertFactor,
-                            min(mapping.sourceRange.last, seedRangeLeft.last) + convertFactor
-                        ).println("overlapping range of ${seedRangeLeft}")
-
-                        mappingResult.add(
-                            mapped
-                        )
-
-                        val seedRangeLeft = if (seedRangeLeft.last > mapping.sourceRange.last) LongRange(
-                            min(
-                                mapping.sourceRange.last,
-                                seedRangeLeft.last
-                            ) + 1, seedRangeLeft.last
-                        ) else LongRange.EMPTY
-
-                        seedRangeLeft.println("left to process from $seedRangeLeft")
-
-                        seedRangeLeft to mappingResult
-                    }
-                if (seedRangeLeft != LongRange.EMPTY)
-                    mappingResult.add(seedRange)
-
-                mappingResult.toList()
+            overlappingRangeMappings.flatMap { (seed, overlappedMappings) ->
+                val ranges = mapRanges(overlappedMappings, seed, seedRange)
+                ranges
             }
         }
-        println("-----------")
-        println("-----${mapName}")
-        println("-----${result}")
-        println("-----------")
         result
     }
     return intervalsMapped.minOf { it.first }
 
 
+}
+
+private fun mapRanges(
+    overlappedMappings: List<RangeMapping>,
+    seed: LongRange,
+    seedRange: LongRange
+): MutableList<LongRange> {
+    val (seedRangeLeft, mappingResult) = overlappedMappings
+        .sortedBy { it.sourceRange.first }
+        .fold(seed to mutableListOf<LongRange>()) { (rangeToProcess, mappingResult), mapping ->
+            if (rangeToProcess == LongRange.EMPTY)
+                return@fold rangeToProcess to mappingResult
+
+            val (left, overlapping, right) = rangeToProcess.split(mapping.sourceRange)
+            if (left != LongRange.EMPTY)
+                mappingResult.add(left)
+
+            val convertFactor = mapping.destinationRange.first - mapping.sourceRange.first
+            mappingResult.add(
+                LongRange(
+                    overlapping.first + convertFactor,
+                    overlapping.last + convertFactor,
+                )
+            )
+
+
+            right to mappingResult
+        }
+    if (seedRangeLeft != LongRange.EMPTY)
+        mappingResult.add(seedRange)
+    return mappingResult
+}
+
+private fun LongRange.split(sourceRange: LongRange): Triple<LongRange, LongRange, LongRange> {
+    val left = if (first < sourceRange.first)
+        LongRange(
+            first,
+            sourceRange.first - 1
+        )
+    else LongRange.EMPTY
+
+    val overlapping = LongRange(
+        max(sourceRange.first, first),
+        min(sourceRange.last, last)
+    )
+
+    val right = if (last > sourceRange.last) LongRange(
+        min(
+            sourceRange.last,
+            last
+        ) + 1, last
+    ) else LongRange.EMPTY
+    return Triple(left, overlapping, right)
+}
+
+private fun findOverlappingRangeMappings(
+    parsed: InputParsed,
+    mapName: MapName,
+    seedRange: LongRange
+): Map<LongRange, List<RangeMapping>> {
+    val mapped = parsed.maps[mapName]!!.mappings
+        .filter {
+            it.sourceRange.overlaps(seedRange)
+        }
+        .map {
+            seedRange to it
+        }.groupBy({
+            it.first
+        }) {
+            it.second
+        }
+    return mapped
 }
 

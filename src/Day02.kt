@@ -1,6 +1,6 @@
 val day = "Day02"
 
-data class Game(
+private data class Game(
     val gameId: Int,
     val cubeSets: List<CubeSet>
 ){

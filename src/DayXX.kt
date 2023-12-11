@@ -1,10 +1,10 @@
-private const val dayName = "Day01"
+private const val DAY_NAME = "Day01"
 fun main() {
     checkPart1()
 //    checkPart2()
 
 
-    val input = readInput(dayName)
+    val input = readInputResources(DAY_NAME, "input")
     part1(input).println("Part one result:")
     part2(input).println("Part two result:")
 }
@@ -15,12 +15,12 @@ private fun part1(input: List<String>): Int {
 }
 
 private fun checkPart1() {
-    val partOneTest = readInput("${dayName}_test")
+    val partOneTest = readInputResources(DAY_NAME, "test")
     check(part1(partOneTest).println("Part one test result") == 142)
 }
 
 private fun checkPart2() {
-    val partTwoTest = readInput("${dayName}_test")
+    val partTwoTest = readInputResources(DAY_NAME, "test")
     check(part2(partTwoTest).println("Part two test result") == 281)
 }
 

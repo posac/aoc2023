@@ -1,7 +1,7 @@
 private const val DAY_NAME = "Day10"
 fun main() {
     checkPart1()
-//    checkPart2()
+    checkPart2()
 
 
     val input = readInputResources(DAY_NAME, "input")
@@ -50,11 +50,11 @@ object Day10 {
         }
     }
 
-    enum class Direction {
-        NORT,
-        EAST,
-        SOUTH,
-        WEST;
+    enum class Direction(val vertical: Boolean) {
+        NORT(true),
+        EAST(false),
+        SOUTH(true),
+        WEST(false);
 
         fun oposit() = when (this) {
             NORT -> SOUTH
@@ -75,12 +75,26 @@ object Day10 {
         STARTING_POINT("S");
 
         companion object {
-            fun getInstance(symbol: String) = values().first { it.symbol == symbol }
+            fun getInstance(symbol: String) =
+                values().firstOrNull { it.symbol == symbol } ?: throw IllegalStateException("Symbol ${symbol}")
         }
     }
 }
 
 private fun part1(input: List<String>): Int {
+    val parsedMap = parseInput(input)
+
+    val startingPoint = parsedMap.values.first { it.type == Day10.PipeType.STARTING_POINT }
+    startingPoint.distance = 0
+
+    var items = listOf(startingPoint to startingPoint.connected.values.toList())
+    while (items.isNotEmpty()) {
+        items = calculateDistance(items)
+    }
+    return parsedMap.mapNotNull { it.value.distance }.max()
+}
+
+private fun parseInput(input: List<String>): Map<Day10.Position, Day10.MapItem.Pipe> {
     val map = input.mapIndexed { x, line ->
         val mapItems = line.mapIndexed { y, type ->
             val type = Day10.PipeType.getInstance(type.toString())
@@ -107,38 +121,67 @@ private fun part1(input: List<String>): Int {
             }
         item.connected.putAll(pipes)
     }
-    while (map.values.any { it.connected.size == 1 })
-        map.values.filter { it.connected.size == 1 }.forEach {
+    while (map.values.any { it.connected.size == 1  || it.connected.any { it.value.connected.isEmpty() }})
+        map.values.filter { it.connected.size == 1 || it.connected.any { it.value.connected.isEmpty() } }.forEach {
             it.connected.clear()
         }
-
-    val startingPoint = map.values.first { it.type == Day10.PipeType.STARTING_POINT }
-    startingPoint.distance = 0
-
-    calculateDistance(startingPoint, startingPoint.connected.values.toList())
-    return map.mapNotNull { it.value.distance }.max()
+    return map
 }
 
-private fun calculateDistance(prevPipe: Day10.MapItem.Pipe, connected: List<Day10.MapItem.Pipe>) {
-    connected.filter { it.distance == null }.mapNotNull { pipe ->
-        pipe.distance = prevPipe.distance
-        val filter = pipe.connected.values.filter { it != prevPipe && it.distance == null }
-        if (filter.isEmpty())
-            null
-        else
-            pipe to filter
+private fun calculateDistance(connected: List<Pair<Day10.MapItem.Pipe, List<Day10.MapItem.Pipe>>>) =
+    connected.flatMap { (prevPipe, connected) ->
+        connected.filter { it.distance == null }.mapNotNull { pipe ->
+            pipe.distance = (prevPipe.distance ?: 0) + 1
+            val filter = pipe.connected.values.filter { it != prevPipe && it.distance == null }
+            if (filter.isEmpty())
+                null
+            else
+                pipe to filter
+        }
     }
-}
+
 
 private fun checkPart1() {
     check(part1(readInputResources(DAY_NAME, "test")).println("Part one test result") == 4)
     check(part1(readInputResources(DAY_NAME, "test2")).println("Part one test result") == 8)
+    check(part1(readInputResources(DAY_NAME, "test3")).println("Part one test result") == 4)
 }
 
 private fun checkPart2() {
-    val partTwoTest = readInputResources(DAY_NAME, "test")
-    check(part2(partTwoTest).println("Part two test result") == 281)
+
+//    check(part2(readInputResources(DAY_NAME, "test")).println("Part two test result") == 1)
+//    check(part2(readInputResources(DAY_NAME, "test_p2_1")).println("Part two test result") == 4)
+//    check(part2(readInputResources(DAY_NAME, "test_p2_2")).println("Part two test result") == 8)
+    check(part2(readInputResources(DAY_NAME, "test_p2_3")).println("Part two test result") == 10)
 }
 
-private fun part2(input: List<String>) = input.size
+private fun part2(input: List<String>): Int {
+    val parsedMap = parseInput(input)
+    val rows = input.size
+    val columns = input.first().length
+
+    val positionsInside = IntRange(0, rows - 1).flatMap { row ->
+        var inside = false
+        var enteringPipe: Day10.MapItem.Pipe? = null
+        IntRange(0, columns - 1).mapNotNull { column ->
+            val position = Day10.Position(column = column, row = row)
+            val pipe = requireNotNull(parsedMap[position])
+            if ((pipe.type == Day10.PipeType.GROUND || pipe.connected.isEmpty()) && inside) {
+                position
+            } else {
+                if (pipe.connected.keys.contains(Day10.Direction.NORT))
+                    inside = inside.not()
+
+
+
+                null
+            }
+
+
+        }
+    }.println()
+
+
+    return positionsInside.size
+}
 

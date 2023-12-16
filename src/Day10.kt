@@ -1,3 +1,5 @@
+import java.io.File
+
 private const val DAY_NAME = "Day10"
 fun main() {
     checkPart1()
@@ -10,25 +12,18 @@ fun main() {
 }
 
 object Day10 {
-    sealed interface MapItem {
-        val position: Position
 
-        data class Pipe(
-            override val position: Position,
-            val connected: MutableMap<Direction, Pipe> = mutableMapOf(),
-            val type: PipeType
-        ) : MapItem {
-            var distance: Int? = null
-            override fun toString(): String {
-                return "${type.symbol}(${position})(connected ${connected.keys})"
-            }
+    data class MapItem(
+        val position: Position,
+        val connected: MutableMap<Direction, MapItem> = mutableMapOf(),
+        val type: MapItemType
+    ) {
+        var distance: Int? = null
+        var inside: Boolean = false
+        var connectedWithStarting = false
+        override fun toString(): String {
+            return "${type.symbol}(${position})(connected ${connected.keys})"
         }
-
-        data class Ground(override val position: Position) : MapItem
-        data class StartingPoint(
-            override val position: Position,
-            val connected: MutableMap<Direction, Pipe> = mutableMapOf()
-        ) : MapItem
     }
 
 
@@ -38,23 +33,23 @@ object Day10 {
         fun north() = Direction.NORT to copy(row = row - 1)
         fun east() = Direction.EAST to copy(column = column + 1)
         fun west() = Direction.WEST to copy(column = column - 1)
-        fun getCompatiblePositions(type: PipeType): Map<Direction, Position> = when (type) {
-            PipeType.VERTICAL -> mapOf(south(), north())
-            PipeType.HORIZONTAL -> mapOf(east(), west())
-            PipeType.NORTH_EAST -> mapOf(north(), east())
-            PipeType.NORTH_WEST -> mapOf(north(), west())
-            PipeType.SOUTH_WEST -> mapOf(south(), west())
-            PipeType.SOUTH_EAST -> mapOf(south(), east())
-            PipeType.GROUND -> emptyMap()
-            PipeType.STARTING_POINT -> mapOf(north(), east(), west(), south())
+        fun getCompatiblePositions(type: MapItemType): Map<Direction, Position> = when (type) {
+            MapItemType.VERTICAL -> mapOf(south(), north())
+            MapItemType.HORIZONTAL -> mapOf(east(), west())
+            MapItemType.NORTH_EAST -> mapOf(north(), east())
+            MapItemType.NORTH_WEST -> mapOf(north(), west())
+            MapItemType.SOUTH_WEST -> mapOf(south(), west())
+            MapItemType.SOUTH_EAST -> mapOf(south(), east())
+            MapItemType.GROUND -> emptyMap()
+            MapItemType.STARTING_POINT -> mapOf(north(), east(), west(), south())
         }
     }
 
-    enum class Direction(val vertical: Boolean) {
-        NORT(true),
-        EAST(false),
-        SOUTH(true),
-        WEST(false);
+    enum class Direction() {
+        NORT,
+        EAST,
+        SOUTH,
+        WEST;
 
         fun oposit() = when (this) {
             NORT -> SOUTH
@@ -64,7 +59,7 @@ object Day10 {
         }
     }
 
-    enum class PipeType(val symbol: String) {
+    enum class MapItemType(val symbol: String) {
         VERTICAL("|"),
         HORIZONTAL("-"),
         NORTH_EAST("L"),
@@ -84,23 +79,17 @@ object Day10 {
 private fun part1(input: List<String>): Int {
     val parsedMap = parseInput(input)
 
-    val startingPoint = parsedMap.values.first { it.type == Day10.PipeType.STARTING_POINT }
-    startingPoint.distance = 0
 
-    var items = listOf(startingPoint to startingPoint.connected.values.toList())
-    while (items.isNotEmpty()) {
-        items = calculateDistance(items)
-    }
     return parsedMap.mapNotNull { it.value.distance }.max()
 }
 
-private fun parseInput(input: List<String>): Map<Day10.Position, Day10.MapItem.Pipe> {
+private fun parseInput(input: List<String>): Map<Day10.Position, Day10.MapItem> {
     val map = input.mapIndexed { x, line ->
-        val mapItems = line.mapIndexed { y, type ->
-            val type = Day10.PipeType.getInstance(type.toString())
+        val mapItems = line.mapIndexed { y, typeChar ->
+            val type = Day10.MapItemType.getInstance(typeChar.toString())
 
             val position = Day10.Position(column = y, row = x)
-            position to Day10.MapItem.Pipe(position = position, type = type)
+            position to Day10.MapItem(position = position, type = type)
         }
 
 
@@ -121,17 +110,25 @@ private fun parseInput(input: List<String>): Map<Day10.Position, Day10.MapItem.P
             }
         item.connected.putAll(pipes)
     }
-    while (map.values.any { it.connected.size == 1  || it.connected.any { it.value.connected.isEmpty() }})
-        map.values.filter { it.connected.size == 1 || it.connected.any { it.value.connected.isEmpty() } }.forEach {
-            it.connected.clear()
-        }
+    val startingPoint = map.values.first { it.type == Day10.MapItemType.STARTING_POINT }
+    startingPoint.distance = 0
+    startingPoint.connectedWithStarting = true
+
+    var items = listOf(startingPoint to startingPoint.connected.values.toList())
+    while (items.isNotEmpty()) {
+        items = calculateDistance(items)
+    }
+    map.values.filter { it.connectedWithStarting.not() && it.connected.isNotEmpty() }.forEach {
+        it.connected.clear()
+    }
     return map
 }
 
-private fun calculateDistance(connected: List<Pair<Day10.MapItem.Pipe, List<Day10.MapItem.Pipe>>>) =
+private fun calculateDistance(connected: List<Pair<Day10.MapItem, List<Day10.MapItem>>>) =
     connected.flatMap { (prevPipe, connected) ->
         connected.filter { it.distance == null }.mapNotNull { pipe ->
             pipe.distance = (prevPipe.distance ?: 0) + 1
+            pipe.connectedWithStarting = true
             val filter = pipe.connected.values.filter { it != prevPipe && it.distance == null }
             if (filter.isEmpty())
                 null
@@ -149,39 +146,57 @@ private fun checkPart1() {
 
 private fun checkPart2() {
 
-//    check(part2(readInputResources(DAY_NAME, "test")).println("Part two test result") == 1)
-//    check(part2(readInputResources(DAY_NAME, "test_p2_1")).println("Part two test result") == 4)
-//    check(part2(readInputResources(DAY_NAME, "test_p2_2")).println("Part two test result") == 8)
+    check(part2(readInputResources(DAY_NAME, "test")).println("Part two test result") == 1)
+    check(part2(readInputResources(DAY_NAME, "test_p2_1")).println("Part two test result") == 4)
+    check(part2(readInputResources(DAY_NAME, "test_p2_2")).println("Part two test result") == 8)
     check(part2(readInputResources(DAY_NAME, "test_p2_3")).println("Part two test result") == 10)
+    check(part2(readInputResources(DAY_NAME, "test_p2_4")).println("Part two test result") == 5)
+    check(part2(readInputResources(DAY_NAME, "test_p2_5")).println("Part two test result") == 4)
+    check(part2(readInputResources(DAY_NAME, "test_p2_6")).println("Part two test result") == 30)
 }
 
 private fun part2(input: List<String>): Int {
-    val parsedMap = parseInput(input)
+    val parsedMap = parseInput(input).mapValues {
+        if (!it.value.connectedWithStarting)
+            it.value.copy(type = Day10.MapItemType.GROUND)
+        else it.value
+    }
     val rows = input.size
     val columns = input.first().length
 
     val positionsInside = IntRange(0, rows - 1).flatMap { row ->
         var inside = false
-        var enteringPipe: Day10.MapItem.Pipe? = null
         IntRange(0, columns - 1).mapNotNull { column ->
             val position = Day10.Position(column = column, row = row)
             val pipe = requireNotNull(parsedMap[position])
-            if ((pipe.type == Day10.PipeType.GROUND || pipe.connected.isEmpty()) && inside) {
+            if ((pipe.type == Day10.MapItemType.GROUND || pipe.connected.isEmpty()) && inside) {
+                pipe.inside = true
                 position
             } else {
                 if (pipe.connected.keys.contains(Day10.Direction.NORT))
                     inside = inside.not()
-
-
-
                 null
             }
-
-
         }
     }.println()
 
+    File("debug.txt").writeText(IntRange(0, rows - 1).map { row ->
 
+        IntRange(0, columns - 1).map { column ->
+            val position = Day10.Position(column = column, row = row)
+            val pipe = parsedMap[position]!!
+            if (pipe.inside)
+                "I"
+            else {
+                if (pipe.connected.isNotEmpty())
+                    pipe.type.symbol
+                else
+                    "0"
+            }
+        }.joinToString("")
+
+
+    }.joinToString("\n"))
     return positionsInside.size
 }
 

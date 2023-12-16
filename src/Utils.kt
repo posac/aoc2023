@@ -23,3 +23,12 @@ fun String.md5() = BigInteger(1, MessageDigest.getInstance("MD5").digest(toByteA
 fun <T> T.println(prefixMessage: String = ""): T = apply {
     kotlin.io.println("${prefixMessage} ${this}")
 }
+
+data class Position(val row: Int, val column: Int)
+
+
+fun <T> List<T>.combination(): List<Pair<T, T>> = dropLast(1).mapIndexed { index, first ->
+    this.drop(index + 1).map { second ->
+        first to second
+    }
+}.flatten()

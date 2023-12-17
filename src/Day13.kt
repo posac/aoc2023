@@ -65,90 +65,66 @@ private fun parseAndCalculate(inputData: List<String>, fixSmudge: Boolean = fals
             }.toMutableList())
         }
 
-        if (fixSmudge)
-            findSmudge(rows)
-        val duplicatedColumns = checkDuplication(columns)
-        val duplicatedRows = checkDuplication(rows)
+
+        val duplicatedRows = checkDuplication(rows, fixSmudge)
+        val duplicatedColumns =
+            if (fixSmudge.not() || duplicatedRows.isEmpty()) checkDuplication(columns, fixSmudge) else emptyList()
         println("-----")
         duplicatedColumns.sum() + duplicatedRows.sumOf { it * 100 }
     }.sum()
 }
 
-private fun List<Day13.Container>.fixSmudge(): Int {
-    var fixes = 0
-    combination().filter {
-        it.first.values.zip(it.second.values).filter { it.first != it.second }.size == 1
-    }.let {
-        require(it.size <= 1)
-        fixes += it.size
-        it
-    }.forEach {
-        it.first.values = it.second.values
-    }
-    return fixes
-
-}
-
-private fun findSmudge(items: List<Day13.Container>) {
+private fun checkDuplication(items: List<Day13.Container>, fixSmudge: Boolean): List<Long> {
     val potenciallyWithSmuge = items.combination().filter {
         it.first.values.zip(it.second.values).filter { it.first != it.second }.size == 1
     }.map { Day13.Reflection.get(it.first.id, it.second.id, true) }
 
     val duplicatedPairs =
-        caolculateDuplication(items) + potenciallyWithSmuge
-    val filter = groupByDuplicationCenter(duplicatedPairs, items)
-    val toFix = filter.filter {
-        it.value.any { it.potential }
-    }.println("To fix").let {
-        require(it.size == 1) { "should be only one center" }
-        require(it.entries.first().value.filter { it.potential }.size == 1) { "should be only one row to change" }
-        it
-    }
-    val toFixReflection = toFix.entries.first().value.first { it.potential }
-    items[toFixReflection.first].values.forEachIndexed { index, characterWrapper ->
-        if (characterWrapper != items[toFixReflection.second].values[index])
-            characterWrapper.character = items[toFixReflection.second].values[index].character
-    }
-}
-
-private fun checkDuplication(items: List<Day13.Container>): List<Long> {
-
-    if (
-        items.drop(1).none { it.getString() == items.first().getString() } &&
-        items.dropLast(1).none { it.getString() == items.last().getString() }
-    )
-        return emptyList()
-    val duplicatedPairs =
-        caolculateDuplication(items)
+        items.groupBy { it.getString() }.filter { it.value.size >= 2 }.flatMap {
+            if (it.value.size == 2)
+                listOf(Day13.Reflection.get(it.value[0].id, it.value[1].id, false))
+            else
+                it.value.combination().map { Day13.Reflection.get(it.first.id, it.second.id, false) }
+        }
+            .toList()
+            .let {
+                if (fixSmudge)
+                    it + potenciallyWithSmuge
+                else
+                    it
+            }
 
 
-    val filter = groupByDuplicationCenter(duplicatedPairs, items)
+    val filter = duplicatedPairs.map { (it.first + it.second) / 2.0 to it }
+        .groupBy({ it.first }) { it.second }
+        .filter {
+            it.value.filter { it.potential }.size <= 1 && (
+                    it.value.map { it.second }.sorted() == IntRange(ceil(it.key).toInt(), items.size - 1).toList()
+                            || it.value.map { it.first }.sorted() == IntRange(0, it.key.toInt()).toList())
+        }
 
     return filter
+        .filter {
+            fixSmudge.not() || it.value.any { it.potential }
+        }.println("filtered ")
+        .let {
+            if (fixSmudge && it.isNotEmpty()) {
+                require(it.size <= 1) { "should be only one center" }
+                val toFixReflection = it.entries.first().value.first { it.potential }
+                items[toFixReflection.first].values.forEachIndexed { index, characterWrapper ->
+                    if (characterWrapper != items[toFixReflection.second].values[index])
+                        characterWrapper.character = items[toFixReflection.second].values[index].character
+                }
+//                require(it.entries.first().value.filter { it.potential }.size == 1) { "should be only one row to change" }
+            }
+            it
+        }
+
         .map {
             ceil(it.key).toLong()
         }
 
 }
-
-private fun groupByDuplicationCenter(
-    duplicatedPairs: List<Day13.Reflection>,
-    items: List<Day13.Container>
-) = duplicatedPairs.map { (it.first + it.second) / 2.0 to it }
-    .groupBy({ it.first }) { it.second }
-    .filter {
-        it.value.map { it.second }.sorted() == IntRange(ceil(it.key).toInt(), items.size - 1).toList()
-                || it.value.map { it.first }.sorted() == IntRange(0, it.key.toInt()).toList()
-    }
-
-private fun caolculateDuplication(items: List<Day13.Container>) =
-    items.groupBy { it.getString() }.filter { it.value.size >= 2 }.flatMap {
-        if (it.value.size == 2)
-            listOf(Day13.Reflection.get(it.value[0].id, it.value[1].id, false))
-        else
-            it.value.combination().map { Day13.Reflection.get(it.first.id, it.second.id, false) }
-    }
-        .toList()
 
 private fun checkPart1() {
     val partOneTest = readInputResources(DAY_NAME, "test")
@@ -160,6 +136,7 @@ private fun checkPart1() {
 private fun checkPart2() {
     val partTwoTest = readInputResources(DAY_NAME, "test")
     check(part2(partTwoTest).println("Part two test result") == 400L)
+    check(part2(readInputResources(DAY_NAME, "input")).println("Part two test result") > 30100L)
 }
 
 private fun part2(input: List<String>) = parseAndCalculate(input, true)

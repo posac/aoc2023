@@ -32,3 +32,28 @@ fun <T> List<T>.combination(): List<Pair<T, T>> = dropLast(1).mapIndexed { index
         first to second
     }
 }.flatten()
+
+fun <T> Map<Int, List<T>>.iterateOverCombination(): Sequence<List<T>> {
+    val map = this
+    return sequence {
+        val indexes = keys.associateWith { 0 }.toMutableMap()
+        var shouldContinue = true
+        val sortedKeys = keys.sorted()
+        while (shouldContinue) {
+            yield(sortedKeys.map { map[it]!![indexes[it]!!]!! })
+            shouldContinue = (sortedKeys.fold(1) { acc, item ->
+                if (acc == 0)
+                    0
+                else
+                    if (indexes[item]!! < map[item]!!.size - 1) {
+                        indexes[item] = indexes[item]!! + acc
+                        0
+                    } else {
+                        indexes[item] = 0
+                        1
+                    }
+            } == 0)
+        }
+
+    }
+}

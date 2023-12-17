@@ -5,6 +5,8 @@ fun main() {
 
 
     val input = readInputResources(DAY_NAME, "input")
+    // not :  8565 too high
+    //
     part1(input).println("Part one result:")
     part2(input).println("Part two result:")
 }
@@ -31,110 +33,162 @@ object Day12 {
         val pattern: List<Group>,
         val brokenGroups: List<Int>
     ) {
-        fun currentGroupsCounts() = pattern.filter { it.type == Type.DAMAGED }.map { it.count }
 
     }
 
 
 }
 
-private fun part1(input: List<String>): Int {
+private fun part1(input: List<String>): Long {
 
     val groups = input
-//        .drop(1).take(1)
         .map {
-        val (sequenceGroups, counts) = it.split(" ")
-        Day12.SpringGroups(
-            patternString = sequenceGroups,
-            pattern = sequenceGroups.map {
-                Day12.Type.get(it)
-            }.fold(object {
-                val groups = mutableListOf<Day12.Group>()
-                var currentGroup: Day12.Group? = null
+            val (sequenceGroups, counts) = it.split(" ")
+            Day12.SpringGroups(
+                patternString = sequenceGroups,
+                pattern = sequenceGroups.map {
+                    Day12.Type.get(it)
+                }.fold(object {
+                    val groups = mutableListOf<Day12.Group>()
+                    var currentGroup: Day12.Group? = null
 
-                fun setNewGroup(group: Day12.Group) {
-                    currentGroup = group
-                    groups.add(group)
-                }
-            }) { acc, item ->
-                if (acc::currentGroup == null || acc.currentGroup?.type != item) {
-                    acc.setNewGroup(Day12.Group(type = item, 1))
-                } else {
-                    acc.currentGroup!!.count += 1
-                }
-                acc
-            }.groups,
-            brokenGroups = counts.split(",").map {
-                it.toInt()
-            }
-        )
-    }
-//    groups.forEach { println(it) }
-    return groups.map {
-        val groups = it.brokenGroups.mapIndexed { index, number ->
-            val separatorNeeded = if (index == it.brokenGroups.size - 1) "" else "$SEPARATOR_TOKEN"
-            index to "(?=((?<group${index}>(?<!#)$GROUP_TOKEN{$number})$separatorNeeded))".toRegex().findAll(it.patternString).map {
-                val first = it.groups.minOf { it!!.range.first }
-                val last = it.groups.maxOf { it!!.range.last }
-                IntRange(first, last)
-            }
-                .toList()
-        }.toMap()
-        groups
-    }.map { groups ->
-        groups.iterateOverCombination().filter {
-            val valid = it.zipWithNext { current, next ->
-                current.last < next.first
-            }
-            valid.all { it }
-        }.map { it.map { it } }.distinct().toList()
-    }.sumOf { it.size }
-}
-
-
-fun <T> Map<Int, List<T>>.iterateOverCombination(): Sequence<List<T>> {
-    val map = this
-    return sequence {
-        val indexes = keys.associateWith { 0 }.toMutableMap()
-        var shouldContinue = true
-        val sortedKeys = keys.sorted()
-        while (shouldContinue) {
-            yield(sortedKeys.map { map[it]!![indexes[it]!!]!! })
-            shouldContinue = (sortedKeys.fold(1) { acc, item ->
-                if (acc == 0)
-                    0
-                else
-                    if (indexes[item]!! < map[item]!!.size - 1) {
-                        indexes[item] = indexes[item]!! + acc
-                        0
-                    } else {
-                        indexes[item] = 0
-                        1
+                    fun setNewGroup(group: Day12.Group) {
+                        currentGroup = group
+                        groups.add(group)
                     }
-            } == 0)
+                }) { acc, item ->
+                    if (acc::currentGroup == null || acc.currentGroup?.type != item) {
+                        acc.setNewGroup(Day12.Group(type = item, 1))
+                    } else {
+                        acc.currentGroup!!.count += 1
+                    }
+                    acc
+                }.groups,
+                brokenGroups = counts.split(",").map {
+                    it.toInt()
+                }
+            )
         }
+    return groups.sumOf { it.countPossibilities() }
 
-    }
 }
 
 
-fun Day12.SpringGroups.countPossibilities() = 0
-val SEPARATOR_TOKEN = "(\\.|\\?)"
-val GROUP_TOKEN = "(#|\\?)"
+fun Day12.SpringGroups.countPossibilities() : Long {
+    val results = mutableListOf<String>()
+    val countPosibilities = countPosibilities(
+        patternString,
+        brokenGroups,
+        "",
+        results
+    )
+    kotlin.io.println(brokenGroups)
+    kotlin.io.println(patternString)
+    results.forEach {
+        kotlin.io.println(it)
+    }
+    kotlin.io.println(results.map { it.dropLastWhile { it=='.' } }.size)
+    kotlin.io.println(results.map { it.dropLastWhile { it=='.' } }.distinct().size)
+    return countPosibilities.println("path=${patternString} list=${brokenGroups} result=")
+}
+
+val correctChar = listOf('?', '#')
+val breaking = listOf('.')
+fun countPosibilities(
+    pattern: String,
+    groupsToMatch: List<Int>,
+    currentSolution: String,
+    solutions: MutableList<String>
+): Long {
+//    val patternPrepared = pattern.replace("..", ".").dropWhile { it in breaking }.dropWhile { it in breaking }
+    val patternPrepared = pattern
+    if (groupsToMatch.isEmpty() && pattern.contains('#').not()) {
+        solutions.add(currentSolution)
+        return 1
+    }
+    if (patternPrepared.isEmpty() || groupsToMatch.isEmpty() && pattern.contains('#'))
+        return 0
+    val currentGroup = groupsToMatch[0]
+    val otherGroups = groupsToMatch.drop(1)
+    val matches = "^(\\?|#){$currentGroup}(\\?|\\.|$).*".toRegex().matches(patternPrepared)
+
+
+    val nextIteration = patternPrepared.drop(1)
+    if (matches) {
+        return countPosibilities(
+            patternPrepared.drop(currentGroup + 1),
+            otherGroups,
+            currentSolution + IntRange(0, currentGroup - 1).map { '#' }.joinToString(separator = "") + ".",
+            solutions
+        ) + if(patternPrepared.first()=='?') countPosibilities(
+             nextIteration ,
+            groupsToMatch,
+            currentSolution + ".",
+            solutions
+        ) else 0
+    } else if (patternPrepared.first() == '#')
+        return 0
+    else
+        return countPosibilities(nextIteration, groupsToMatch, currentSolution + ".", solutions)
+
+}
+
+// x0
+//   x0
+//      X00
+//      0X0
+//      00X
+//   0X0
+//
+// 0x
+
 private fun checkPart1() {
     val partOneTest = readInputResources(DAY_NAME, "test")
 
-//    val oneBigUnknown = Day12.SpringGroups(
-//        pattern = listOf(Day12.Group(type = Day12.Type.UNKNOWN, count = 3)),
-//        brokenGroups = listOf(1)
-//    )
+    val oneBigUnknown = Day12.SpringGroups(
+        patternString = "???",
+        pattern = listOf(Day12.Group(type = Day12.Type.UNKNOWN, count = 3)),
+        brokenGroups = listOf(1)
+    )
 
+// ??????#?#? list=[1, 1, 3]
+//1#?#???###?
+//2#??#??###?
+//3#???#?###?
+//4?#??#?###?
+//5??#?#?###?
+//6?#?#??###?
 
-//    check(oneBigUnknown.countPossibilities().println("One one element group") == 3)
-//    check(oneBigUnknown.copy(brokenGroups = listOf(2)).countPossibilities().println("One one element group") == 2)
-//    check(oneBigUnknown.copy(brokenGroups = listOf(1, 1)).countPossibilities().println("One one element group") == 1)
-//    check(oneBigUnknown.copy(brokenGroups = listOf(3)).countPossibilities().println("One one element group") == 0)
-    check(part1(partOneTest).println("Part one test result") == 21)
+//????#?.???.?? list=[2, 2, 1, 1] result= 21
+//##?##?.#?#.??
+//##?##?.#?#.??
+//##?##?.#??.#?
+//##?##?.?#?.#?
+//##?##?.??#.#?
+//##?##?.??#.?#
+//##?##?.?#?.?#
+//##?##?.#??.?#
+
+//
+    check(oneBigUnknown.countPossibilities().println("One one element group") == 3L)
+    check(oneBigUnknown.copy(brokenGroups = listOf(2)).countPossibilities().println("One two element group") == 2L)
+    check(oneBigUnknown.copy(brokenGroups = listOf(1, 1)).countPossibilities().println("Two one element groups") == 1L)
+    check(oneBigUnknown.copy(brokenGroups = listOf(3)).countPossibilities().println("One 3 element group") == 1L)
+    check(oneBigUnknown.copy(brokenGroups = listOf(4)).countPossibilities().println("One 4 element group") == 0L)
+    check(
+        oneBigUnknown.copy(patternString = "???###", brokenGroups = listOf(1, 3)).countPossibilities()
+            .println("One one elemtn, one 3 elements group") == 2L
+    )
+    check(
+        oneBigUnknown.copy(patternString = "??..???.?#?????????", brokenGroups = listOf(1, 3, 2, 1, 1, 1))
+            .countPossibilities()
+            .println("[1, 3, 2, 1, 1, 1] ?") == 60L
+    )
+    check(
+        oneBigUnknown.copy(patternString = "?###????????", brokenGroups = listOf(3,2,1)).countPossibilities()
+            .println("3,2,1 should be 10") == 10L
+    )
+    check(part1(partOneTest).println("Part one test result") == 21L)
 }
 
 private fun checkPart2() {

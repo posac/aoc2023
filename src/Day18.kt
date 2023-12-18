@@ -1,8 +1,14 @@
+import java.io.File
 import kotlin.math.max
 import kotlin.math.min
 
 private const val DAY_NAME = "Day18"
 fun main() {
+    File("debug.txt").readLines().map {
+        "(#|I)".toRegex().findAll(it).toList().size
+    }.joinToString("\n").let {
+        File("debug_cumsum.txt").writeText(it)
+    }
     checkPart1()
     checkPart2()
 
@@ -48,8 +54,8 @@ private fun part1(input: List<String>, debug: Boolean = false, useHex: Boolean =
 
     val minRow = parsed.minOf { it.rows.first }
     val maxRow = parsed.maxOf { it.rows.last }
-
-    return LongRange(minRow, maxRow ).map { rowId ->
+    val cumsum = mutableListOf<Long>()
+    val result: Long = LongRange(minRow, maxRow).map { rowId ->
         var inside = false
         val filter = parsed.filter { rowId in it.rows }
         val (vertical, horizontal) = filter
@@ -58,6 +64,7 @@ private fun part1(input: List<String>, debug: Boolean = false, useHex: Boolean =
         (vertical.sortedBy { it.star.column }
             .zipWithNext { current, next ->
                 if (current.direction in setOf(Direction.NORT)) {
+                    inside = true
                     inside = true
                 } else if (current.direction in setOf(Direction.SOUTH)) {
                     inside = false
@@ -71,29 +78,42 @@ private fun part1(input: List<String>, debug: Boolean = false, useHex: Boolean =
 
 
             }.fold(mutableListOf<LongRange>()) { acc, item ->
-                if(acc.isNotEmpty() && acc.last().last == item.first){
+                if (acc.isNotEmpty() && acc.last().last == item.first) {
                     val newInterval = LongRange(acc.last().first, item.last)
                     acc.remove(acc.last())
                     acc.add(newInterval)
-                }
-                else
+                } else
                     acc.add(item)
                 acc
-            }+horizontal.map {it.columns }).distinct().sortedWith(compareBy({it.first}, {it.first - it.last})).fold(mutableListOf<LongRange>()) { acc, item ->
-                if(acc.isNotEmpty() && acc.last().last == item.first){
+            } + horizontal.map { it.columns })
+            .sortedWith(compareBy({ it.first }, { it.first - it.last }))
+            .fold(mutableListOf<LongRange>()) { acc, item ->
+                if (acc.isNotEmpty() && acc.last().last == item.first) {
                     val newInterval = LongRange(acc.last().first, item.last)
                     acc.remove(acc.last())
                     acc.add(newInterval)
-                }
-                else if(acc.isNotEmpty() &&  item.edgesInsideRange(acc.last())){
-
-                }else
+                } else if (acc.isNotEmpty() && item.edgesInsideRange(acc.last())) {
+                    val newInterval = LongRange(
+                        acc.last().first,
+                        max(acc.last().last, item.last)
+                    ).println("rowID $rowId - produced from ${acc.last()} and $item")
+                    acc.remove(acc.last())
+                    acc.add(newInterval)
+                } else
                     acc.add(item)
-            acc
-        }.println("rowID $rowId ranges")
+                acc
+            }.println("rowID $rowId ranges")
             .map { it.last - it.first + 1 }.sum().println("rowID $rowId length =")
 
-    }.sum()
+    }.foldIndexed(0) { idx, acc, item ->
+
+        val l = acc + item
+        cumsum.add(item)
+        l.println("cum sum after $idx ").toLong()
+
+    }
+    File("cumsum.txt").writeText(cumsum.map { it.toString() }.joinToString("\n"))
+    return result
 //    return 0
 }
 

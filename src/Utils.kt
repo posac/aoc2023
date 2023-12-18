@@ -24,7 +24,35 @@ fun <T> T.println(prefixMessage: String = ""): T = apply {
     kotlin.io.println("${prefixMessage} ${this}")
 }
 
-data class Position(val row: Int, val column: Int)
+data class Position(val row: Int, val column: Int) {
+
+    fun south() = Direction.SOUTH to copy(row = row + 1)
+    fun north() = Direction.NORT to copy(row = row - 1)
+    fun east() = Direction.EAST to copy(column = column + 1)
+    fun west() = Direction.WEST to copy(column = column - 1)
+
+
+    fun move(direction: Direction) = when (direction) {
+        Direction.NORT -> north()
+        Direction.EAST -> east()
+        Direction.SOUTH -> south()
+        Direction.WEST -> west()
+    }.second
+}
+
+enum class Direction() {
+    NORT,
+    EAST,
+    SOUTH,
+    WEST;
+
+    fun oposit() = when (this) {
+        NORT -> SOUTH
+        EAST -> WEST
+        SOUTH -> NORT
+        WEST -> EAST
+    }
+}
 
 
 fun <T> List<T>.combination(): List<Pair<T, T>> = dropLast(1).mapIndexed { index, first ->

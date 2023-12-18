@@ -10,19 +10,22 @@ fun main() {
 }
 
 
-private fun part1(input: List<String>): Int {
-    return input.size
+
+
+private fun part1(input: List<String>):Long {
+    return input.size.toLong()
 }
 
 private fun checkPart1() {
     val partOneTest = readInputResources(DAY_NAME, "test")
-    check(part1(partOneTest).println("Part one test result") == 142)
+    check(part1(partOneTest).println("Part one test result") == 62L)
 }
 
 private fun checkPart2() {
     val partTwoTest = readInputResources(DAY_NAME, "test")
-    check(part2(partTwoTest).println("Part two test result") == 281)
+    check(part2(partTwoTest).println("Part two test result") == 281L)
 }
 
-private fun part2(input: List<String>) = input.size
+private fun part2(input: List<String>): Long = input.size.toLong()
+
 

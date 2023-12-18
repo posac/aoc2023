@@ -122,7 +122,7 @@ private fun checkPart2() {
 private fun Long.isBetween(inclusiveMin: Long, exclusiveMax: Long) = this in inclusiveMin..<exclusiveMax
 private fun LongRange.overlaps(other: LongRange): Boolean = this.edgesInsideRange(other) || other.edgesInsideRange(this)
 
-private fun LongRange.edgesInsideRange(other: LongRange): Boolean = start.isBetween(other.first, other.last)
+fun LongRange.edgesInsideRange(other: LongRange): Boolean = start.isBetween(other.first, other.last)
         || last.isBetween(other.first, other.last)
 
 

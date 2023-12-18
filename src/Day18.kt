@@ -44,40 +44,57 @@ private fun part1(input: List<String>, debug: Boolean = false, useHex: Boolean =
             Day18.Line(star = lastPosition, end = lastPosition.move(direction, countValue), direction = direction)
         lastPosition = line.end
         line
-    }.println().apply {
-        forEach {
-            it.println()
-        }
     }
 
     val minRow = parsed.minOf { it.rows.first }
     val maxRow = parsed.maxOf { it.rows.last }
 
-    return 0L
-//    return parsed.keys.groupBy {
-//        it.row
-//    }.map { (row, positions) ->
-//        val columns = positions.sortedBy { it.column }
-//
-//        var inside = false
-//        columns.zipWithNext { current, next ->
-//            val path = parsed[current]
-//            if (path != null && Direction.NORT in path.directions) {
-//                inside = inside.not()
-//            }
-//            if (inside)
-//                (next.column - current.column).toLong()
-//                    .println("$current, $next")
-//            else
-//                1L
-//
-//        }.sum().let {
-//            if (columns.isNotEmpty())
-//                it + 1L
-//            else
-//                it
-//        }
-//    }.sum()
+    return LongRange(minRow, maxRow ).map { rowId ->
+        var inside = false
+        val filter = parsed.filter { rowId in it.rows }
+        val (vertical, horizontal) = filter
+            .partition { it.direction in setOf(Direction.NORT, Direction.SOUTH) }
+
+        (vertical.sortedBy { it.star.column }
+            .zipWithNext { current, next ->
+                if (current.direction in setOf(Direction.NORT)) {
+                    inside = true
+                } else if (current.direction in setOf(Direction.SOUTH)) {
+                    inside = false
+                }
+                if (inside)
+                    LongRange(current.star.column, next.star.column)
+                else if (current.direction !in setOf(Direction.NORT, Direction.SOUTH))
+                    current.columns
+                else
+                    LongRange.EMPTY
+
+
+            }.fold(mutableListOf<LongRange>()) { acc, item ->
+                if(acc.isNotEmpty() && acc.last().last == item.first){
+                    val newInterval = LongRange(acc.last().first, item.last)
+                    acc.remove(acc.last())
+                    acc.add(newInterval)
+                }
+                else
+                    acc.add(item)
+                acc
+            }+horizontal.map {it.columns }).distinct().sortedWith(compareBy({it.first}, {it.first - it.last})).fold(mutableListOf<LongRange>()) { acc, item ->
+                if(acc.isNotEmpty() && acc.last().last == item.first){
+                    val newInterval = LongRange(acc.last().first, item.last)
+                    acc.remove(acc.last())
+                    acc.add(newInterval)
+                }
+                else if(acc.isNotEmpty() &&  item.edgesInsideRange(acc.last())){
+
+                }else
+                    acc.add(item)
+            acc
+        }.println("rowID $rowId ranges")
+            .map { it.last - it.first + 1 }.sum().println("rowID $rowId length =")
+
+    }.sum()
+//    return 0
 }
 
 

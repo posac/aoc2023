@@ -1,5 +1,5 @@
-import java.io.File
-import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.min
 
 private const val DAY_NAME = "Day18"
 fun main() {
@@ -15,9 +15,9 @@ fun main() {
 
 @OptIn(ExperimentalStdlibApi::class)
 private fun part1(input: List<String>, debug: Boolean = false, useHex: Boolean = false): Long {
-    var currentMapItem = Day18.MapItem(Position(0, 0))
+    var lastPosition = Position(0, 0)
 
-    val parsed = (listOf(currentMapItem.position to currentMapItem) + (input.map {
+    val parsed = input.map {
         val (directionString, count, rgb) = it.split(" ")
 
 
@@ -39,67 +39,47 @@ private fun part1(input: List<String>, debug: Boolean = false, useHex: Boolean =
         else
             rgb.drop(2).dropLast(2).hexToLong()
 
-        LongRange(0, countValue - 1).map {
-            currentMapItem.directions.add(direction)
-            val currentPosition = currentMapItem.position.move(direction)
-            currentMapItem = Day18.MapItem(currentPosition, mutableSetOf(direction.oposit()))
-            currentMapItem.position to currentMapItem
+
+        val line =
+            Day18.Line(star = lastPosition, end = lastPosition.move(direction, countValue), direction = direction)
+        lastPosition = line.end
+        line
+    }.println().apply {
+        forEach {
+            it.println()
         }
-    }.flatten())).toMap()
-
-    if (debug)
-        printMap(parsed)
-
-    return parsed.keys.groupBy {
-        it.row
-    }.map { (row, positions) ->
-        val columns = positions.sortedBy { it.column }
-
-        var inside = false
-        columns.zipWithNext { current, next ->
-            val path = parsed[current]
-            if (path != null && Direction.NORT in path.directions) {
-                inside = inside.not()
-            }
-            if (inside)
-                abs((next.column - current.column)).toLong()
-//                    .println("$current, $next")
-            else if (next.column-current.column == 1)
-                1L
-            else
-                1L
-
-        }.sum().let {
-           it + 1
-        }.println("$row size")
-
-    }.sum()
-}
-
-private fun printMap(parsed: Map<Position, Day18.MapItem>) {
-    parsed.keys.groupBy {
-        it.row
-    }.map { (row, positions) ->
-        val columns = positions.sortedBy { it.column }
-        var inside = false
-        IntRange(columns.minOf { it.column }, columns.maxOf { it.column }).map { column ->
-            val path = parsed[Position(row, column)]
-            if (path != null && path.directions.contains(Direction.NORT)) {
-                inside = inside.not()
-            }
-            if (path != null)
-                '#'
-            else if (inside)
-                'I'
-            else
-                '.'
-
-        }.joinToString("")
-
-    }.joinToString("\n").let {
-        File("debug.txt").writeText(it)
     }
+
+    val minRow = parsed.minOf { it.rows.first }
+    val maxRow = parsed.maxOf { it.rows.last }
+
+    return 0L
+//    return parsed.keys.groupBy {
+//        it.row
+//    }.map { (row, positions) ->
+//        val columns = positions.sortedBy { it.column }
+//
+//        var inside = false
+//        columns.zipWithNext { current, next ->
+//            val path = parsed[current]
+//            if (path != null && Direction.NORT in path.directions) {
+//                inside = inside.not()
+//            }
+//            if (inside)
+//                (next.column - current.column).toLong()
+//                    .println("$current, $next")
+//            else
+//                1L
+//
+//        }.sum().let {
+//            if (columns.isNotEmpty())
+//                it + 1L
+//            else
+//                it
+//        }
+//    }.sum()
 }
+
 
 private fun checkPart1() {
     val partOneTest = readInputResources(DAY_NAME, "test")
@@ -118,10 +98,15 @@ object Day18 {
 
     data class Line(
         val star: Position,
-        val end: Position
-    )
+        val end: Position,
+        val direction: Direction
+    ) {
+        val rows = LongRange(start = min(star.row, end.row), max(star.row, end.row))
+        val columns = LongRange(start = min(star.column, end.column), max(star.column, end.column))
+    }
+
     data class MapItem(
-        val position: Position,
+        val position: Line,
         val directions: MutableSet<Direction> = mutableSetOf()
 
     )

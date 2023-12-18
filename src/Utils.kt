@@ -24,19 +24,20 @@ fun <T> T.println(prefixMessage: String = ""): T = apply {
     kotlin.io.println("${prefixMessage} ${this}")
 }
 
-data class Position(val row: Int, val column: Int) {
+data class Position(val row: Long, val column: Long) {
+    constructor(row: Int, column: Int) : this(row.toLong(), column.toLong())
 
-    fun south() = Direction.SOUTH to copy(row = row + 1)
-    fun north() = Direction.NORT to copy(row = row - 1)
-    fun east() = Direction.EAST to copy(column = column + 1)
-    fun west() = Direction.WEST to copy(column = column - 1)
+    fun south(times: Long = 1) = Direction.SOUTH to copy(row = row + times)
+    fun north(times: Long = 1) = Direction.NORT to copy(row = row - times)
+    fun east(times: Long = 1) = Direction.EAST to copy(column = column + times)
+    fun west(times: Long = 1) = Direction.WEST to copy(column = column - times)
 
 
-    fun move(direction: Direction) = when (direction) {
-        Direction.NORT -> north()
-        Direction.EAST -> east()
-        Direction.SOUTH -> south()
-        Direction.WEST -> west()
+    fun move(direction: Direction, times: Long) = when (direction) {
+        Direction.NORT -> north(times)
+        Direction.EAST -> east(times)
+        Direction.SOUTH -> south(times)
+        Direction.WEST -> west(times)
     }.second
 }
 

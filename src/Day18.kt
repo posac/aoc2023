@@ -62,6 +62,7 @@ private fun part1(input: List<String>, debug: Boolean = false, useHex: Boolean =
             .partition { it.direction in setOf(Direction.NORT, Direction.SOUTH) }
 
         (vertical.sortedBy { it.star.column }
+//            .println("rowID $rowId verticals")
             .zipWithNext { current, next ->
                 if (current.direction in setOf(Direction.NORT)) {
                     inside = true
@@ -77,7 +78,12 @@ private fun part1(input: List<String>, debug: Boolean = false, useHex: Boolean =
                     LongRange.EMPTY
 
 
-            }.fold(mutableListOf<LongRange>()) { acc, item ->
+            }
+//            .println("rowID $rowId vertical")
+            .filter {
+                it.first <= it.last
+            }
+            .fold(mutableListOf<LongRange>()) { acc, item ->
                 if (acc.isNotEmpty() && acc.last().last == item.first) {
                     val newInterval = LongRange(acc.last().first, item.last)
                     acc.remove(acc.last())
@@ -86,6 +92,9 @@ private fun part1(input: List<String>, debug: Boolean = false, useHex: Boolean =
                     acc.add(item)
                 acc
             } + horizontal.map { it.columns })
+            .filter {
+                it.first <= it.last
+            }
             .sortedWith(compareBy({ it.first }, { it.first - it.last }))
             .fold(mutableListOf<LongRange>()) { acc, item ->
                 if (acc.isNotEmpty() && acc.last().last == item.first) {
@@ -94,24 +103,18 @@ private fun part1(input: List<String>, debug: Boolean = false, useHex: Boolean =
                     acc.add(newInterval)
                 } else if (acc.isNotEmpty() && item.edgesInsideRange(acc.last())) {
                     val newInterval = LongRange(
-                        acc.last().first,
+                        min(acc.last().first, item.last),
                         max(acc.last().last, item.last)
-                    ).println("rowID $rowId - produced from ${acc.last()} and $item")
+                    )
                     acc.remove(acc.last())
                     acc.add(newInterval)
                 } else
                     acc.add(item)
                 acc
-            }.println("rowID $rowId ranges")
-            .map { it.last - it.first + 1 }.sum().println("rowID $rowId length =")
+            }
+            .map { it.last - it.first + 1 }.sum()
 
-    }.foldIndexed(0) { idx, acc, item ->
-
-        val l = acc + item
-        cumsum.add(item)
-        l.println("cum sum after $idx ").toLong()
-
-    }
+    }.sum()
     File("cumsum.txt").writeText(cumsum.map { it.toString() }.joinToString("\n"))
     return result
 //    return 0
@@ -142,10 +145,5 @@ object Day18 {
         val columns = LongRange(start = min(star.column, end.column), max(star.column, end.column))
     }
 
-    data class MapItem(
-        val position: Line,
-        val directions: MutableSet<Direction> = mutableSetOf()
-
-    )
 
 }

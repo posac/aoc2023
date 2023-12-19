@@ -41,18 +41,7 @@ private fun part1(inputData: List<String>): Long {
 }
 
 private fun parseAndCalculate(inputData: List<String>, fixSmudge: Boolean = false): Long {
-    val batchedInput = sequence<List<String>> {
-        var batch = mutableListOf<String>()
-        inputData.forEach {
-            if (it.isEmpty()) {
-                yield(batch)
-                batch = mutableListOf()
-            } else {
-                batch.add(it)
-            }
-        }
-        yield(batch)
-    }.toList()
+    val batchedInput = inputData.splitByEmptyLine()
 
 
     return batchedInput.map { input ->

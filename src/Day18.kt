@@ -1,4 +1,3 @@
-import java.io.File
 import kotlin.math.max
 import kotlin.math.min
 
@@ -49,7 +48,6 @@ private fun part1(input: List<String>, debug: Boolean = false, useHex: Boolean =
 
     val minRow = parsed.minOf { it.rows.first }
     val maxRow = parsed.maxOf { it.rows.last }
-    val cumsum = mutableListOf<Long>()
     val result: Long = LongRange(minRow, maxRow).map { rowId ->
         var inside = false
         val filter = parsed.filter { rowId in it.rows }
@@ -110,9 +108,7 @@ private fun part1(input: List<String>, debug: Boolean = false, useHex: Boolean =
             .map { it.last - it.first + 1 }.sum()
 
     }.sum()
-    File("cumsum.txt").writeText(cumsum.map { it.toString() }.joinToString("\n"))
     return result
-//    return 0
 }
 
 

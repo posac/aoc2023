@@ -86,3 +86,21 @@ fun <T> Map<Int, List<T>>.iterateOverCombination(): Sequence<List<T>> {
 
     }
 }
+
+
+fun List<String>.splitByEmptyLine(): List<List<String>> {
+    var batch = mutableListOf<String>()
+    var inputData = this
+    return sequence<List<String>> {
+        var batch = mutableListOf<String>()
+        inputData.forEach {
+            if (it.isEmpty()) {
+                yield(batch)
+                batch = mutableListOf()
+            } else {
+                batch.add(it)
+            }
+        }
+        yield(batch)
+    }.toList()
+}

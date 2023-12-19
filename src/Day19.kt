@@ -11,55 +11,82 @@ fun main() {
 
 object Day19 {
     data class Parts(
-        var a: Int,
-        var s: Int,
-        var m: Int,
-        var x: Int
-    ) {
-        fun getPart(name: Char) = when (name) {
-            'a' -> a
-            's' -> s
-            'm' -> m
-            'x' -> x
-            else -> throw IllegalStateException("Unexpected token $name")
-        }
+        val parts: Map<PartName, Int>
+    )
 
-        fun setPart(name: Char, value: Int) = when (name) {
-            'a' -> a = value
-            's' -> s = value
-            'm' -> m = value
-            'x' -> x= value
-            else -> throw IllegalStateException("Unexpected token $name")
+    data class PartsRanges(
+        val map: MutableMap<PartName, IntRange> = PartName.values().map {
+            it to IntRange(0, 4000)
+        }.toMap().toMutableMap()
+    )
+
+    enum class PartName(val symbol: Char) {
+        A('a'),
+        S('s'),
+        M('m'),
+        X('x');
+
+        companion object {
+            fun get(symbol: Char) = values().firstOrNull { it.symbol == symbol }
+                ?: throw IllegalArgumentException("Unexpected symbol ${symbol}")
         }
     }
 
+    data class WorkflowItem(
+        val partName: PartName,
+        val relation: NumericRelation,
+        val value: Int,
+        val destination: String
+    ) {
+        companion object {
+            fun alwaysTrueWorkflowItem(destination: String) =
+                WorkflowItem(
+                    partName = PartName.A,
+                    relation = NumericRelation.GREATER_THAN,
+                    value = Int.MIN_VALUE,
+                    destination = destination
+                )
+        }
+    }
+
+
+    enum class NumericRelation(val symbol: Char) {
+        LESS_THAN('<'),
+        GREATER_THAN('>');
+
+        companion object {
+            fun get(symbol: Char) = values().firstOrNull { it.symbol == symbol }
+                ?: throw IllegalArgumentException("Unexpected symbol ${symbol}")
+        }
+    }
 }
 
 val PARTS_REGEX = "\\{x=(?<x>\\d+),m=(?<m>\\d+),a=(?<a>\\d+),s=(?<s>\\d+)}".toRegex()
+
 
 private fun part1(input: List<String>): Long {
     val (partsParsed, workflowsParsed) = parseGame(input)
 
     val startingWorkflow = workflowsParsed["in"]!!
-    val result = partsParsed.map {
-        it to goOverWorkflow(it, startingWorkflow, workflowsParsed)
-    }.println()
-    return result.filter { it.second == "A" }.sumOf { it.first.a + it.first.s + it.first.m + it.first.x.toLong() }
+    val initialRanges = Day19.PartsRanges()
+    val result = goOverWorkflow(initialRanges, startingWorkflow, workflowsParsed).println()
+//    return result.filter { it.second == "A" }.sumOf { it.first.a + it.first.s + it.first.m + it.first.x.toLong() }
+    return 0L
 }
 
-private fun parseGame(input: List<String>): Pair<List<Day19.Parts>, Map<String, List<Pair<Day19.Parts.() -> Boolean, String>>>> {
+
+private fun parseGame(input: List<String>): Pair<List<Day19.Parts>, Map<String, List<Day19.WorkflowItem>>> {
     val (workflows, parts) = input.splitByEmptyLine()
     val partsParsed = parts.map {
         val groups = PARTS_REGEX.find(it)!!.groups
         Day19.Parts(
-            a = groups["a"]!!.value.toInt(),
-            s = groups["s"]!!.value.toInt(),
-            m = groups["m"]!!.value.toInt(),
-            x = groups["x"]!!.value.toInt(),
+            Day19.PartName.values().associateWith {
+                groups[it.symbol.toString()]!!.value.toInt()
+            }
         )
     }.println()
 
-    val workflowsParsed: Map<String, List<Pair<Day19.Parts.() -> Boolean, String>>> = workflows.map {
+    val workflowsParsed: Map<String, List<Day19.WorkflowItem>> = workflows.map {
         val (location, workflow) = it.split("{")
 
         val workflowActions = workflow
@@ -73,17 +100,15 @@ private fun parseGame(input: List<String>): Pair<List<Day19.Parts>, Map<String, 
             val operation = coditionString[1]
             val value = coditionString.drop(2).toInt()
 
-            destination
 
-            when (operation) {
-                '<' -> partsLessThen(part, value)
-                '>' -> partsBiggerThen(part, value)
-                else -> throw IllegalStateException("Unexpected operation ${operation}")
+            Day19.WorkflowItem(
+                partName = Day19.PartName.get(part),
+                relation = Day19.NumericRelation.get(operation),
+                value = value,
+                destination = destination
+            )
 
-            } to destination
-
-
-        } + listOf(TRUE_CONDITION to workflowActions.last())
+        } + listOf(Day19.WorkflowItem.alwaysTrueWorkflowItem(workflowActions.last()))
 
     }.toMap()
     return Pair(partsParsed, workflowsParsed)
@@ -91,19 +116,21 @@ private fun parseGame(input: List<String>): Pair<List<Day19.Parts>, Map<String, 
 
 
 fun goOverWorkflow(
-    parts: Day19.Parts,
-    workflow: List<Pair<Day19.Parts.() -> Boolean, String>>,
-    workflowsParsed: Map<String, List<Pair<Day19.Parts.() -> Boolean, String>>>
+    parts: Day19.PartsRanges,
+    workflow: List<Day19.WorkflowItem>,
+    workflowsParsed: Map<String, List<Day19.WorkflowItem>>
 ): String {
     return run breaking@{
         workflow.forEach { (condition, destination) ->
+            workflow.
+
             if (parts.condition())
                 if (destination in setOf("A", "R"))
                     return@breaking destination
                 else
                     return@breaking goOverWorkflow(parts, workflowsParsed[destination]!!, workflowsParsed)
         }
-        return@breaking workflow.last().second
+        return@breaking workflow.last().destination
     }
 
 }
@@ -125,6 +152,7 @@ private fun partsBiggerThen(partName: Char, value: Int): Day19.Parts.() -> Boole
 private fun checkPart1() {
     val partOneTest = readInputResources(DAY_NAME, "test")
     check(part1(partOneTest).println("Part one test result") == 19114L)
+    check(part1(readInputResources(DAY_NAME, "input")).println("Part one test result") == 402185L)
 }
 
 private fun checkPart2() {
@@ -171,10 +199,5 @@ private fun part2(input: List<String>): Long {
     return 0
 }
 
-private fun lessThanModifier(partName: Char, value: Int): Day19.Parts.() -> Pair<Day19.Parts?, Day19.Parts?> {
-    return {
-
-    }
-}
 
 

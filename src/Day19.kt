@@ -15,10 +15,13 @@ object Day19 {
     )
 
     data class PartsRanges(
-        val map: MutableMap<PartName, IntRange> = PartName.values().map {
-            it to IntRange(0, 4000)
-        }.toMap().toMutableMap()
-    )
+        val parts: Map<PartName, IntRange> = PartName.values().map {
+            it to IntRange(1, 4000)
+        }.toMap().toMutableMap(),
+
+        val trackDestination: MutableList<WorkflowItem> = mutableListOf()
+    ) {
+    }
 
     enum class PartName(val symbol: Char) {
         A('a'),
@@ -33,14 +36,16 @@ object Day19 {
     }
 
     data class WorkflowItem(
+        val workflowName : String,
         val partName: PartName,
         val relation: NumericRelation,
         val value: Int,
         val destination: String
     ) {
         companion object {
-            fun alwaysTrueWorkflowItem(destination: String) =
+            fun alwaysTrueWorkflowItem(workflowName: String, destination: String) =
                 WorkflowItem(
+                    workflowName = workflowName,
                     partName = PartName.A,
                     relation = NumericRelation.GREATER_THAN,
                     value = Int.MIN_VALUE,
@@ -50,9 +55,13 @@ object Day19 {
     }
 
 
-    enum class NumericRelation(val symbol: Char) {
-        LESS_THAN('<'),
-        GREATER_THAN('>');
+    enum class NumericRelation(val symbol: Char, val evaluate: (IntRange, Int) -> Boolean) {
+        LESS_THAN('<', { partRange: IntRange, workflowValue: Int ->
+            partRange.last < workflowValue
+        }),
+        GREATER_THAN('>', { partRange: IntRange, workflowValue: Int ->
+            partRange.first > workflowValue
+        });
 
         companion object {
             fun get(symbol: Char) = values().firstOrNull { it.symbol == symbol }
@@ -67,11 +76,27 @@ val PARTS_REGEX = "\\{x=(?<x>\\d+),m=(?<m>\\d+),a=(?<a>\\d+),s=(?<s>\\d+)}".toRe
 private fun part1(input: List<String>): Long {
     val (partsParsed, workflowsParsed) = parseGame(input)
 
+    val accepted = calculateAccepted(workflowsParsed)
+    return partsParsed.filter { parts ->
+        accepted.any { partsRanges ->
+            parts.parts.entries.all { (partName, partValue) ->
+                partsRanges.parts[partName]!!.contains(partValue)
+            }
+        }
+    }.sumOf { it.parts.values.sum().toLong() }
+
+}
+
+private fun calculateAccepted(workflowsParsed: Map<String, List<Day19.WorkflowItem>>): MutableList<Day19.PartsRanges> {
     val startingWorkflow = workflowsParsed["in"]!!
+    val accepted = mutableListOf<Day19.PartsRanges>()
+    val rejected = mutableListOf<Day19.PartsRanges>()
     val initialRanges = Day19.PartsRanges()
-    val result = goOverWorkflow(initialRanges, startingWorkflow, workflowsParsed).println()
-//    return result.filter { it.second == "A" }.sumOf { it.first.a + it.first.s + it.first.m + it.first.x.toLong() }
-    return 0L
+
+    goOverWorkflow(
+        initialRanges, startingWorkflow, workflowsParsed, accepted, rejected
+    )
+    return accepted
 }
 
 
@@ -84,7 +109,7 @@ private fun parseGame(input: List<String>): Pair<List<Day19.Parts>, Map<String, 
                 groups[it.symbol.toString()]!!.value.toInt()
             }
         )
-    }.println()
+    }
 
     val workflowsParsed: Map<String, List<Day19.WorkflowItem>> = workflows.map {
         val (location, workflow) = it.split("{")
@@ -102,51 +127,98 @@ private fun parseGame(input: List<String>): Pair<List<Day19.Parts>, Map<String, 
 
 
             Day19.WorkflowItem(
+                workflowName=location,
                 partName = Day19.PartName.get(part),
                 relation = Day19.NumericRelation.get(operation),
                 value = value,
                 destination = destination
             )
 
-        } + listOf(Day19.WorkflowItem.alwaysTrueWorkflowItem(workflowActions.last()))
+        } + listOf(Day19.WorkflowItem.alwaysTrueWorkflowItem(location, workflowActions.last()))
 
     }.toMap()
     return Pair(partsParsed, workflowsParsed)
 }
 
+private fun IntRange.split(workflowValue: Int, relation: Day19.NumericRelation): Pair<IntRange, IntRange> {
+    if (contains(workflowValue).not())
+        return IntRange.EMPTY to this
+
+    return when (relation) {
+        Day19.NumericRelation.LESS_THAN -> {
+            IntRange(first, workflowValue - 1) to IntRange(workflowValue, last)
+        }
+
+        Day19.NumericRelation.GREATER_THAN -> {
+            IntRange(workflowValue + 1, last) to IntRange(first, kotlin.math.min(workflowValue, last))
+        }
+    }
+}
 
 fun goOverWorkflow(
-    parts: Day19.PartsRanges,
+    partsRanges: Day19.PartsRanges,
     workflow: List<Day19.WorkflowItem>,
-    workflowsParsed: Map<String, List<Day19.WorkflowItem>>
-): String {
+    workflowsParsed: Map<String, List<Day19.WorkflowItem>>,
+    accepted: MutableList<Day19.PartsRanges>,
+    rejected: MutableList<Day19.PartsRanges>
+) {
+    var current = partsRanges
     return run breaking@{
-        workflow.forEach { (condition, destination) ->
-            workflow.
+        workflow.forEach { workflowItem ->
 
-            if (parts.condition())
-                if (destination in setOf("A", "R"))
-                    return@breaking destination
-                else
-                    return@breaking goOverWorkflow(parts, workflowsParsed[destination]!!, workflowsParsed)
+            val partRange = current.parts[workflowItem.partName]!!
+
+            if (workflowItem.relation.evaluate(partRange, workflowItem.value)) {
+                when (workflowItem.destination) {
+                    "A" -> {
+                        accepted.add(current)
+                        return@breaking
+                    }
+
+                    "R" -> {
+                        rejected.add(current)
+                        return@breaking
+                    }
+                }
+                current.trackDestination.add(workflowItem)
+                goOverWorkflow(
+                    current,
+                    workflowsParsed[workflowItem.destination]!!,
+                    workflowsParsed,
+                    accepted,
+                    rejected
+                )
+                return@breaking
+            } else {
+
+                val (matching, notMatching) = partRange.split(
+                    workflowValue = workflowItem.value,
+                    relation = workflowItem.relation
+                )
+
+
+                if (matching != IntRange.EMPTY)
+                    goOverWorkflow(
+                        current.copy(
+                            parts = current.parts + (workflowItem.partName to matching),
+                            trackDestination = current.trackDestination.toMutableList()
+                        ),
+                        workflow,
+                        workflowsParsed,
+                        accepted,
+                        rejected
+                    )
+                if (notMatching.first > notMatching.last)
+                    return@forEach
+                current = current.copy(
+                    parts = current.parts + (workflowItem.partName to notMatching),
+                    trackDestination = current.trackDestination.toMutableList()
+                )
+            }
         }
-        return@breaking workflow.last().destination
+
+
     }
-
-}
-
-private val TRUE_CONDITION: Day19.Parts.() -> Boolean = {
-    true
-}
-
-private fun partsLessThen(partName: Char, value: Int): Day19.Parts.() -> Boolean {
-    return {
-        getPart(partName) < value
-    }
-}
-
-private fun partsBiggerThen(partName: Char, value: Int): Day19.Parts.() -> Boolean {
-    return { getPart(partName) > value }
 }
 
 private fun checkPart1() {
@@ -161,42 +233,12 @@ private fun checkPart2() {
 }
 
 private fun part2(input: List<String>): Long {
-    val (workflows, parts) = input.splitByEmptyLine()
-    val partsParsed = parts.map {
-        val groups = PARTS_REGEX.find(it)!!.groups
-        Day19.Parts(
-            a = groups["a"]!!.value.toInt(),
-            s = groups["s"]!!.value.toInt(),
-            m = groups["m"]!!.value.toInt(),
-            x = groups["x"]!!.value.toInt(),
-        )
-    }.println()
+    val (_, workflowsParsed) = parseGame(input)
 
-    val workflowsParsed: Map<String, List<Pair<Day19.Parts.() -> Boolean, String>>> = workflows.map {
-        val (location, workflow) = it.split("{")
-
-        val workflowActions = workflow
-            .dropLast(1)
-            .split(",")
-
-        location to workflowActions.dropLast(1).map {
-            val (coditionString, destination) = it.split(":")
-
-            val part = coditionString.first()
-            val operation = coditionString[1]
-            val value = coditionString.drop(2).toInt()
-
-            when (operation) {
-                '<' -> partsLessThen(part, value)
-                '>' -> partsBiggerThen(part, value)
-                else -> throw IllegalStateException("Unexpected operation ${operation}")
-            } to destination
-
-
-        } + listOf(TRUE_CONDITION to workflowActions.last())
-
-    }.toMap()
-    return 0
+    val accepted = calculateAccepted(workflowsParsed)
+    return accepted.distinct().map {
+        it.parts.values.map { it.last-it.first()+1 }.fold(1L) { acc, i -> acc*i  }
+    }.sum()
 }
 
 

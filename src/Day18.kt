@@ -4,11 +4,6 @@ import kotlin.math.min
 
 private const val DAY_NAME = "Day18"
 fun main() {
-    File("debug.txt").readLines().map {
-        "(#|I)".toRegex().findAll(it).toList().size
-    }.joinToString("\n").let {
-        File("debug_cumsum.txt").writeText(it)
-    }
     checkPart1()
     checkPart2()
 

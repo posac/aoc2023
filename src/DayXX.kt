@@ -17,13 +17,11 @@ private fun part1(input: List<String>):Long {
 }
 
 private fun checkPart1() {
-    val partOneTest = readInputResources(DAY_NAME, "test")
-    check(part1(partOneTest).println("Part one test result") == 62L)
+    check(part1(readInputResources(DAY_NAME, "test")).println("Part one test result") == 62L)
 }
 
 private fun checkPart2() {
-    val partTwoTest = readInputResources(DAY_NAME, "test")
-    check(part2(partTwoTest).println("Part two test result") == 281L)
+    check(part2(readInputResources(DAY_NAME, "test")).println("Part two test result") == 281L)
 }
 
 private fun part2(input: List<String>): Long = input.size.toLong()

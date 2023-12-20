@@ -1,11 +1,11 @@
 private const val DAY_NAME = "Day20"
 fun main() {
-    checkPart1()
+//    checkPart1()
 //    checkPart2()
 
 
     val input = readInputResources(DAY_NAME, "input")
-    part1(input).println("Part one result:")
+//    part1(input).println("Part one result:")
     part2(input).println("Part two result:")
 }
 
@@ -89,10 +89,12 @@ object Day20 {
         ) : SignalProcessor {
 
             override lateinit var nextProcessors: List<SignalProcessor>
-            override var connectedProcessors: List<SignalProcessor> = emptyList()
+            override var connectedProcessors: List<SignalProcessor>
                 set(value) {
                     state = value.associateWith { Signal.LOW }.toMutableMap().println("test")
                 }
+                get() = state.keys.toList()
+
             private lateinit var state: MutableMap<SignalProcessor, Signal>
 
 
@@ -150,7 +152,7 @@ private fun part1(input: List<String>): Long {
 
 }
 
-private fun parse(input: List<String>): MutableMap<String, Day20.SignalProcessor> {
+private fun parse(input: List<String>, onlyReciver: Set<String>  = emptySet()): MutableMap<String, Day20.SignalProcessor> {
     val signalProcessors = input.map {
         val (processorDetails, destinationDetails) = it.split(" -> ")
         val destinationNames = destinationDetails.split(", ")
@@ -165,20 +167,26 @@ private fun parse(input: List<String>): MutableMap<String, Day20.SignalProcessor
     }.associateBy { it.name }.toMutableMap()
 
 
+
+
+
+    signalProcessors.values.forEach { signalProcessor ->
+        signalProcessor.nextProcessors = signalProcessor.destinationNames.mapNotNull {
+            if(it !in signalProcessors.keys && (onlyReciver.isEmpty() || onlyReciver.contains(it))) {
+                signalProcessors[it] = Day20.SignalProcessor.Reciver(it)
+            }
+            signalProcessors[it]
+        }
+
+
+    }
     val connectedToMap = signalProcessors.values.flatMap { processor ->
         processor.destinationNames.map { it to processor.name }
     }.groupBy({ it.first }) { it.second }
 
-
     signalProcessors.values.forEach { signalProcessor ->
-        signalProcessor.nextProcessors = signalProcessor.destinationNames.map {
-            signalProcessors.computeIfAbsent(it) {
-                Day20.SignalProcessor.Reciver(it)
-            }
-        }
         if (signalProcessor.name in connectedToMap.keys)
             signalProcessor.connectedProcessors = connectedToMap[signalProcessor.name]!!.map { signalProcessors[it]!! }
-
     }
     return signalProcessors
 }
@@ -193,7 +201,7 @@ private fun checkPart2() {
 }
 
 private fun part2(input: List<String>): Long {
-    val signalProcessors = parse(input)
+    val signalProcessors = parse(input, setOf("rx"))
 
     calculateDependent(signalProcessors["rx"]!!).println()
 
@@ -211,16 +219,11 @@ private fun part2(input: List<String>): Long {
                 destination = starting
             )
         )
-        var lows = 1
-        var highs = 0
         while (queue.isNotEmpty()) {
             val call = queue.removeFirst()
-
             val calls = call.destination.sendSignal(call.signal, call.source)
 
-            lows += calls.filter { it.signal == Day20.Signal.LOW }.size
-            highs += calls.filter { it.signal == Day20.Signal.HIGH }.size
-            if (numberOfButtonPress % 10000000 == 0L)
+            if (numberOfButtonPress % 100000000 == 0L)
                 println("numberOfButtonPress = $numberOfButtonPress")
             if (calls.any {
                     it.destination.name == "rx" && it.signal == Day20.Signal.LOW
@@ -233,17 +236,23 @@ private fun part2(input: List<String>): Long {
         }
 
     }
-    return -1L
+    return numberOfButtonPress
 }
 
-fun calculateDependent(signalProcessor: Day20.SignalProcessor): Set<Day20.SignalProcessor> {
-    if (signalProcessor is Day20.SignalProcessor.Broadcaster)
+fun calculateDependent(
+    signalProcessor: Day20.SignalProcessor,
+    acc: MutableSet<Day20.SignalProcessor> = mutableSetOf()
+): Set<Day20.SignalProcessor> {
+    if (signalProcessor is Day20.SignalProcessor.Broadcaster || acc.contains(signalProcessor))
         return emptySet()
-    return signalProcessor.connectedProcessors.toSet().println() + signalProcessor.connectedProcessors.flatMap {
+    acc.add(signalProcessor)
+    signalProcessor.connectedProcessors.forEach {
         calculateDependent(
-            it
+            it,
+            acc
         )
     }
+    return acc
 }
 
 

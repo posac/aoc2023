@@ -32,6 +32,12 @@ data class Position(val row: Long, val column: Long) {
     fun east(times: Long = 1) = Direction.EAST to copy(column = column + times)
     fun west(times: Long = 1) = Direction.WEST to copy(column = column - times)
 
+    fun allAround() = mapOf(
+        west(),
+        east(),
+        north(),
+        south()
+    )
 
     fun move(direction: Direction, times: Long) = when (direction) {
         Direction.NORT -> north(times)

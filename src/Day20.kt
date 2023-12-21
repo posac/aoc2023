@@ -1,11 +1,11 @@
 private const val DAY_NAME = "Day20"
 fun main() {
-//    checkPart1()
+    checkPart1()
 //    checkPart2()
 
 
     val input = readInputResources(DAY_NAME, "input")
-//    part1(input).println("Part one result:")
+    part1(input).println("Part one result:")
     part2(input).println("Part two result:")
 }
 
@@ -152,7 +152,10 @@ private fun part1(input: List<String>): Long {
 
 }
 
-private fun parse(input: List<String>, onlyReciver: Set<String>  = emptySet()): MutableMap<String, Day20.SignalProcessor> {
+private fun parse(
+    input: List<String>,
+    onlyReciver: Set<String> = emptySet()
+): MutableMap<String, Day20.SignalProcessor> {
     val signalProcessors = input.map {
         val (processorDetails, destinationDetails) = it.split(" -> ")
         val destinationNames = destinationDetails.split(", ")
@@ -172,7 +175,7 @@ private fun parse(input: List<String>, onlyReciver: Set<String>  = emptySet()): 
 
     signalProcessors.values.forEach { signalProcessor ->
         signalProcessor.nextProcessors = signalProcessor.destinationNames.mapNotNull {
-            if(it !in signalProcessors.keys && (onlyReciver.isEmpty() || onlyReciver.contains(it))) {
+            if (it !in signalProcessors.keys && (onlyReciver.isEmpty() || onlyReciver.contains(it))) {
                 signalProcessors[it] = Day20.SignalProcessor.Reciver(it)
             }
             signalProcessors[it]
@@ -203,14 +206,15 @@ private fun checkPart2() {
 private fun part2(input: List<String>): Long {
     val signalProcessors = parse(input, setOf("rx"))
 
-    calculateDependent(signalProcessors["rx"]!!).println()
 
     val starting = signalProcessors[BROADCASTER_NAME]!!
-
-    var rxhited = false
+    val keyToHigh = mutableSetOf("vm", "lm", "jd", "fv")
+    val loops = keyToHigh.associateWith { -1L }.toMutableMap()
     var numberOfButtonPress = 0L
 
-    while (rxhited.not()) {
+    doPrint(signalProcessors["rx"]!!)
+
+    while (keyToHigh.isNotEmpty()) {
         numberOfButtonPress++
         val queue = mutableListOf(
             Day20.SignalCall(
@@ -225,18 +229,34 @@ private fun part2(input: List<String>): Long {
 
             if (numberOfButtonPress % 100000000 == 0L)
                 println("numberOfButtonPress = $numberOfButtonPress")
-            if (calls.any {
-                    it.destination.name == "rx" && it.signal == Day20.Signal.LOW
-                }) {
-                return numberOfButtonPress
 
-
-                queue.addAll(calls)
+            calls.filter {
+                it.source.name in keyToHigh && it.signal == Day20.Signal.HIGH
+            }.forEach {
+                loops[it.source.name] = numberOfButtonPress
+                keyToHigh.remove(it.source.name)
             }
+            queue.addAll(calls)
         }
 
     }
-    return numberOfButtonPress
+
+    return loops.values.fold(1L) { acc, it ->
+        acc * it
+    }
+}
+
+
+fun doPrint(signalProcessor: Day20.SignalProcessor, deep: Int = 3) {
+    if (deep == 0)
+        return
+    println("${signalProcessor.name} direct deps:")
+    signalProcessor.connectedProcessors.forEach { println("\t ${it}") }
+    println("All deps : ${calculateDependent(signalProcessor).map { it.name }}")
+    println("---")
+    signalProcessor.connectedProcessors.forEach {
+        doPrint(it, deep - 1)
+    }
 }
 
 fun calculateDependent(
